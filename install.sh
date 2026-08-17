@@ -3,17 +3,35 @@ set -e
 
 INSTALL_DIR="/opt/system-sensors"
 SERVICE_NAME="system-sensors.service"
-SCRIPT_PATH="$INSTALL_DIR/system-sensors.sh"
+SCRIPT_NAME="system-sensors.sh"
+SCRIPT_PATH="$INSTALL_DIR/$SCRIPT_NAME"
+LOG_FILE="$INSTALL_DIR/data.log"
 
 echo "=== Instalator system-sensors ==="
 
-# 1. Aktualizacja systemu
-echo "[1/5] Aktualizacja pakietów..."
-sudo apt update -y
+# Sprawdzenie czy instalacja już istnieje
+if [ -d "$INSTALL_DIR" ]; then
+    echo "[INFO] Wykryto istniejącą instalację. Przeprowadzanie aktualizacji..."
+    
+    # Zatrzymaj usługę
+    echo "[1/6] Zatrzymywanie usługi..."
+    sudo systemctl stop $SERVICE_NAME || true
+    echo "✓ Usługa zatrzymana"
+else
+    echo "[1/6] Nowa instalacja - tworzenie katalogu..."
+    sudo mkdir -p "$INSTALL_DIR"
+    echo "✓ Katalog utworzony"
+fi
 
-# 2. Instalacja wymaganych pakietów
-echo "[2/5] Instalacja wymaganych pakietów..."
+# 2. Aktualizacja systemu
+echo "[2/6] Aktualizacja pakietów..."
+sudo apt update -y
+echo "✓ Pakiety zaktualizowane"
+
+# 3. Instalacja wymaganych pakietów
+echo "[3/6] Instalacja wymaganych pakietów..."
 sudo apt install -y lm-sensors smartmontools mosquitto-clients pciutils fancontrol
+echo "✓ Wymagane pakiety zainstalowane"
 
 # (opcjonalne: narzędzia do GPU)
 if lspci | grep -qi nvidia; then
@@ -21,20 +39,26 @@ if lspci | grep -qi nvidia; then
     sudo apt install -y nvidia-utils-535 || true
 fi
 if lspci | grep -qi amd; then
-    echo "Wykryto AMD GPU – (opcjonalnie) rocm-smi"
+    echo "Wykryto AMD GPU – instalacja rocm-smi"
     sudo apt install -y rocm-smi || true
 fi
 
-# 3. Tworzenie katalogu i skryptu
-echo "[3/5] Tworzenie skryptu monitorującego..."
-sudo mkdir -p "$INSTALL_DIR"
+# 4. Aktualizacja/Instalacja skryptu monitorującego
+echo "[4/6] Aktualizacja skryptu monitorującego..."
 
-cp temp3.sh $SCRIPT_PATH
+# Utwórz kopię zapasową starego skryptu jeśli istnieje
+if [ -f "$SCRIPT_PATH" ]; then
+    echo "Tworzenie kopii zapasowej starego skryptu..."
+    sudo cp "$SCRIPT_PATH" "$SCRIPT_PATH.bak"
+fi
 
+# Kopiuj nowy skrypt
+sudo cp temp3.sh "$SCRIPT_PATH"
 sudo chmod +x "$SCRIPT_PATH"
+echo "✓ Skrypt zainstalowany/zaktualizowany"
 
-# 4. Tworzenie usługi systemd
-echo "[4/5] Tworzenie usługi systemd..."
+# 5. Tworzenie/Aktualizacja usługi systemd
+echo "[5/6] Konfiguracja usługi systemd..."
 cat <<EOF | sudo tee /etc/systemd/system/$SERVICE_NAME >/dev/null
 [Unit]
 Description=System Sensors MQTT Publisher
@@ -45,21 +69,35 @@ ExecStart=$SCRIPT_PATH
 Restart=always
 RestartSec=5
 StandardOutput=null
-StandardError=syslog
-SyslogIdentifier=system-sensors
+StandardError=null
 User=root
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 5. Uruchomienie usługi
-echo "[5/5] Uruchamianie usługi..."
 sudo systemctl daemon-reload
+echo "✓ Usługa systemd skonfigurowana"
+
+# 6. Uruchomienie usługi
+echo "[6/6] Uruchamianie/Restartowanie usługi..."
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl start $SERVICE_NAME
+echo "✓ Usługa uruchomiona"
 
-echo "=== Instalacja zakończona! ==="
-echo "Logi: journalctl -u $SERVICE_NAME -f"
-
+echo ""
+echo "=== Instalacja/Aktualizacja zakończona! ==="
+echo ""
+echo "Katalog instalacji: $INSTALL_DIR"
+echo "Skrypt: $SCRIPT_PATH"
+echo "Log: $LOG_FILE"
+echo ""
+echo "Komendy przydatne:"
+echo "  Status usługi:        sudo systemctl status $SERVICE_NAME"
+echo "  Wyświetlanie logów:   tail -f $LOG_FILE"
+echo "  Ostatnie 50 wpisów:   tail -50 $LOG_FILE"
+echo "  Liczba wpisów:        wc -l $LOG_FILE"
+echo "  Restart usługi:       sudo systemctl restart $SERVICE_NAME"
+echo ""
+echo "Dostępne czujniki:"
 sensors

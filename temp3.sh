@@ -6,6 +6,11 @@ MQTT_PORT="1883"      # dla MQTT TCP
 #MQTT_PORT="9002/ws" # jeżeli chcesz używać websocket zamiast TCP
 MQTT_TOPIC="pc-sensors"
 
+# Konfiguracja logowania
+LOG_DIR="/opt/system-sensors"
+LOG_FILE="$LOG_DIR/data.log"
+MAX_LINES=1000  # Maksymalnie 1000 wpisów w logu
+
 # Hostname systemu
 HOSTNAME=$(hostname)
 
@@ -14,6 +19,32 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
+
+# Funkcja do logowania
+log_message() {
+    local message=$1
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] $message" >> "$LOG_FILE"
+    
+    # Sprawdzanie liczby linii i obcinanie jeśli przekroczy MAX_LINES
+    local line_count=$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$line_count" -gt "$MAX_LINES" ]; then
+        # Zachowaj ostatnie MAX_LINES wpisów
+        tail -n "$MAX_LINES" "$LOG_FILE" > "$LOG_FILE.tmp"
+        mv "$LOG_FILE.tmp" "$LOG_FILE"
+    fi
+}
+
+# Upewnij się, że folder logów istnieje
+mkdir -p "$LOG_DIR"
+# Utwórz plik logu jeśli nie istnieje
+touch "$LOG_FILE"
+
+# Inicjalizacja logu
+log_message "=== SYSTEM SENSORS MONITOR STARTED ==="
+log_message "Hostname: $HOSTNAME"
+log_message "MQTT Host: $MQTT_HOST:$MQTT_PORT"
+log_message "Log file: $LOG_FILE (max $MAX_LINES entries)"
 
 get_color() {
     local temp=$1
@@ -30,11 +61,17 @@ publish_mqtt() {
     local key=$1
     local value=$2
     mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -t "$MQTT_TOPIC/$HOSTNAME/$key" -m "$value" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_message "MQTT: Published $MQTT_TOPIC/$HOSTNAME/$key = $value"
+    else
+        log_message "ERROR: Failed to publish $MQTT_TOPIC/$HOSTNAME/$key"
+    fi
 }
 
 while true; do
     clear
     echo -e "=== ${YELLOW}Monitor temperatur (${HOSTNAME})${NC} ==="
+    log_message "--- Cycle START ---"
 
     # CPU (Twoja oryginalna sekcja - nietknięta)
     echo -e "\nCPU:"
@@ -147,5 +184,6 @@ while true; do
         fi
     done
 
-    sleep 5
+    log_message "--- Cycle END ---"
+    sleep 10
 done
