@@ -152,11 +152,6 @@ Disable:
 sudo systemctl disable system-sensors
 ```
 
-View logs:
-```bash
-journalctl -u system-sensors -f
-```
-
 ---
 
 ## 📝 Logging
