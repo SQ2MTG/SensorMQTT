@@ -185,5 +185,5 @@ while true; do
     done
 
     log_message "--- Cycle END ---"
-    sleep 10
+    sleep 2
 done
