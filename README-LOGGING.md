@@ -4,11 +4,6 @@
 
 Skrypt `temp3.sh` został zmodyfikowany, aby:
 
-### 1. **Interwał aktualizacji: 10 sekund**
-   - Poprzednio: 5 sekund
-   - Teraz: 10 sekund (linia `sleep 10`)
-   - Zmniejsza obciążenie systemu
-
 ### 2. **Logging do pliku zamiast journalctl**
    - Wszystkie wpisy logów są zapisywane do: `/opt/system-sensors/data.log`
    - Format: `[YYYY-MM-DD HH:MM:SS] message`
