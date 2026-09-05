@@ -21,6 +21,7 @@ Designed for Linux systems using `lm-sensors`, `smartmontools`, and optional GPU
 - [Dependencies](#dependencies)
 - [Configuration](#configuration)
 - [Service Management](#service-management)
+- [Logging](#logging)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -155,6 +156,89 @@ View logs:
 ```bash
 journalctl -u system-sensors -f
 ```
+
+---
+
+## 📝 Logging
+
+This project now uses file-based logging implemented inside the monitoring script. The changes are summarized below (see `README-LOGGING.md` for details).
+
+- Log file location: `/opt/system-sensors/data.log`
+- Log format: `[YYYY-MM-DD HH:MM:SS] message`
+- The script logs:
+  - MQTT publishing information
+  - Publishing errors (prefixed with `ERROR`)
+  - Cycle start/end markers
+- Automatic limiting: the script keeps a maximum of the most recent 1,000 entries in the log file; older entries are removed automatically (no `logrotate` required).
+
+### Installation and Updating
+
+New installation:
+```bash
+cd system-sensors-linux
+sudo bash install.sh
+```
+
+Updating existing installation: run `install.sh` again — it will automatically:
+- Stop the old service
+- Create a backup of the old script (`.bak`)
+- Install the new version
+- Restart the service
+
+```bash
+cd system-sensors-linux
+sudo bash install.sh
+```
+
+### Log File Commands
+
+```bash
+# Display the last 50 entries
+tail -50 /opt/system-sensors/data.log
+
+# Monitor the log in real time
+tail -f /opt/system-sensors/data.log
+
+# Search for errors
+grep "ERROR" /opt/system-sensors/data.log
+
+# Count all entries
+wc -l /opt/system-sensors/data.log
+
+# Display the entire log
+cat /opt/system-sensors/data.log
+```
+
+### Directory Structure
+
+```text
+/opt/system-sensors/
+├── system-sensors.sh          # Main script (current version)
+├── system-sensors.sh.bak      # Backup of the previous version
+└── data.log                   # Log file (max. 1,000 entries)
+```
+
+### Log Format Example
+
+```text
+[2026-08-17 14:23:45] === SYSTEM SENSORS MONITOR STARTED ===
+[2026-08-17 14:23:45] Hostname: myserver
+[2026-08-17 14:23:45] MQTT Host: 10.10.0.153:1883
+[2026-08-17 14:23:45] Log file: /opt/system-sensors/data.log (max. 1,000 entries)
+[2026-08-17 14:23:46] --- Cycle START ---
+[2026-08-17 14:23:46] MQTT: Published pc-sensors/myserver/cpu/Core0 = 45
+[2026-08-17 14:23:46] MQTT: Published pc-sensors/myserver/cpu/Core1 = 48
+[2026-08-17 14:23:46] MQTT: Published pc-sensors/myserver/gpu/nvidia = 52
+[2026-08-17 14:23:46] --- Cycle END ---
+```
+
+### Notes
+
+- There is no need to install `logrotate` — automatic log limiting is built into the script
+- Each execution of `install.sh` creates a backup of the previous version
+- The logs do not contain any data from `journalctl`
+- All entries are saved with timestamps
+- MQTT errors are logged with the `ERROR` prefix
 
 ---
 
