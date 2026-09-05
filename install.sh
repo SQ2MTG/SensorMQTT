@@ -9,11 +9,11 @@ LOG_FILE="$INSTALL_DIR/data.log"
 
 echo "=== Instalator system-sensors ==="
 
-# Sprawdzenie czy instalacja już istnieje
+# Check if installation already exists
 if [ -d "$INSTALL_DIR" ]; then
     echo "[INFO] Wykryto istniejącą instalację. Przeprowadzanie aktualizacji..."
     
-    # Zatrzymaj usługę
+    # Stop the service
     echo "[1/6] Zatrzymywanie usługi..."
     sudo systemctl stop $SERVICE_NAME || true
     echo "✓ Usługa zatrzymana"
@@ -23,17 +23,17 @@ else
     echo "✓ Katalog utworzony"
 fi
 
-# 2. Aktualizacja systemu
+# 2. System update
 echo "[2/6] Aktualizacja pakietów..."
 sudo apt update -y
 echo "✓ Pakiety zaktualizowane"
 
-# 3. Instalacja wymaganych pakietów
+# 3. Install required packages
 echo "[3/6] Instalacja wymaganych pakietów..."
 sudo apt install -y lm-sensors smartmontools mosquitto-clients pciutils fancontrol
 echo "✓ Wymagane pakiety zainstalowane"
 
-# (opcjonalne: narzędzia do GPU)
+# (optional: GPU tools)
 if lspci | grep -qi nvidia; then
     echo "Wykryto NVIDIA GPU – instalacja narzędzi nvidia-smi"
     sudo apt install -y nvidia-utils-535 || true
@@ -43,21 +43,21 @@ if lspci | grep -qi amd; then
     sudo apt install -y rocm-smi || true
 fi
 
-# 4. Aktualizacja/Instalacja skryptu monitorującego
+# 4. Update/Install monitoring script
 echo "[4/6] Aktualizacja skryptu monitorującego..."
 
-# Utwórz kopię zapasową starego skryptu jeśli istnieje
+# Create a backup of the old script if it exists
 if [ -f "$SCRIPT_PATH" ]; then
     echo "Tworzenie kopii zapasowej starego skryptu..."
     sudo cp "$SCRIPT_PATH" "$SCRIPT_PATH.bak"
 fi
 
-# Kopiuj nowy skrypt
+# Copy the new script
 sudo cp temp3.sh "$SCRIPT_PATH"
 sudo chmod +x "$SCRIPT_PATH"
 echo "✓ Skrypt zainstalowany/zaktualizowany"
 
-# 5. Tworzenie/Aktualizacja usługi systemd
+# 5. Create/Update systemd service
 echo "[5/6] Konfiguracja usługi systemd..."
 cat <<EOF | sudo tee /etc/systemd/system/$SERVICE_NAME >/dev/null
 [Unit]
@@ -79,7 +79,7 @@ EOF
 sudo systemctl daemon-reload
 echo "✓ Usługa systemd skonfigurowana"
 
-# 6. Uruchomienie usługi
+# 6. Start the service
 echo "[6/6] Uruchamianie/Restartowanie usługi..."
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl start $SERVICE_NAME
